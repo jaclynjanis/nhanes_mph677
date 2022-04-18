@@ -1,0 +1,151 @@
+---
+title: "NHANES 2017-2018 File Prep"
+output: html_document
+date: '2022-03-18'
+---
+
+# Step 1: Read in the data
+
+Here, we will read in the SAS export files from the [NHANES website](https://wwwn.cdc.gov/nchs/nhanes/continuousnhanes/default.aspx?BeginYear=2017){target="_blank"} using the {haven} package.
+
+I have already installed the packages below that I will call with the library() function. To install packages, you simply run install.packages("package name") or go to Tools \> Install Packages \> input package name.
+
+```{r, message=F, warning=F}
+library(haven)
+
+demo <- read_xpt("data/DEMO_J.xpt")
+bmx <- read_xpt("data/BMX_J.xpt")
+pbcd <- read_xpt("data/PBCD_J.xpt")
+
+```
+
+# Step 2: Look at the data
+
+cmd shift m
+
+```{r}
+library(tidyverse)
+library(skimr)
+skim(demo)
+skim(bmx)
+skim(pbcd)
+```
+
+# Step 3: Merge the files
+
+```{r}
+bmi_lead <- demo %>% 
+  left_join(select(bmx, SEQN, BMXBMI), by = "SEQN") %>% 
+  left_join(select(pbcd, SEQN, LBXBPB), by = "SEQN") 
+```
+
+# Step 4: Look at the data, part deux
+
+```{r}
+skim(bmi_lead)
+
+bmi_lead %>% 
+  select(BMXBMI, WTMEC2YR, LBXBPB) %>% 
+  skim()
+
+```
+
+## Histograms of BMI and blood lead level
+
+```{r}
+
+hist(bmi_lead$BMXBMI)
+hist(bmi_lead$LBXBPB)
+```
+
+# Step 5: Recode and format
+
+```{r}
+#create our recoded dataset, bmi_lead2
+bmi_lead2 <- bmi_lead %>% 
+  mutate(#create 4-level bmi categories
+         bmicat = case_when(BMXBMI >= 11.5 & BMXBMI <= 24.9 ~ "1",
+                            BMXBMI >= 25.0 & BMXBMI <= 29.9 ~ "2",
+                            BMXBMI >= 30.0 & BMXBMI <= 39.9 ~ "3",
+                            BMXBMI >= 40 ~ "4",
+                            TRUE ~ NA_character_),
+         #create bmi categories with descriptions
+         bmicatf = factor(case_when(bmicat == "1" ~ "Underweight/normal",
+                             bmicat == "2" ~ "Overweight",
+                             bmicat == "3" ~ "Obese",
+                             bmicat == "4" ~ "Severely obese",
+                             TRUE ~ NA_character_),
+                          levels = c("Underweight/normal", "Overweight", "Obese", "Severely obese"),
+                          ordered = T),
+         #natural log-transform the blood lead level variable
+         ln_lead = log(LBXBPB),
+         riagendrf = ifelse(RIAGENDR == 1, "Male", "Female"),
+         ridstatrf = ifelse(RIDSTATR == 1, "Interviewed only", "Interviewed and MEC examined"),
+         ridreth3f = case_when(RIDRETH3 == 1 ~ "Mexican American",
+                               RIDRETH3 == 2 ~ "Other Hispanic",
+                               RIDRETH3 == 3 ~ "Non-Hispanic White",
+                               RIDRETH3 == 4 ~ "Non-Hispanic Black",
+                               RIDRETH3 == 6 ~ "Non-Hispanic Asian",
+                               RIDRETH3 == 7 ~ "Other race - including multiracial",
+                               TRUE ~ NA_character_),
+         ridreth3f = factor(ridreth3f, ordered = F),
+         ridreth3f = relevel(ridreth3f, ref = "Non-Hispanic White"),
+         targetpop = ifelse(RIAGENDR == 2 & RIDAGEYR >= 20 & !is.na(BMXBMI) & !is.na(LBXBPB) & !is.na(RIDRETH3), 1, 0)
+         ) 
+
+```
+
+# Step 6: Descriptive statistics
+
+## Targetpop numbers
+
+```{r}
+# how many women in the target pop?
+summary(factor(bmi_lead2$targetpop))
+
+#how many women (who would be) in the targetpop who are missing blood metal testing?
+bmi_lead2 %>% 
+  filter(RIAGENDR == 2 & RIDAGEYR >= 20 & !is.na(BMXBMI) & !is.na(RIDRETH3)) %>% 
+  select(LBXBPB) %>% 
+  summary()
+```
+
+## Distributions of outcome {.tabset .tabset-pills}
+
+### Raw blood lead level
+
+```{r}
+hist(bmi_lead2$LBXBPB)
+```
+
+### Log-transformed blood lead level
+
+```{r}
+hist(bmi_lead2$ln_lead)
+```
+
+## Scatterplots {.tabset .tabset-pills}
+
+### Blood lead and BMI
+
+```{r}
+bmi_lead2 %>% 
+  filter(targetpop == 1) %>% 
+  ggplot(aes(x = BMXBMI, y = LBXBPB)) +
+  geom_point()
+```
+
+### Log-transformed blood lead and BMI
+
+```{r}
+bmi_lead2 %>% 
+  filter(targetpop == 1) %>% 
+  ggplot(aes(x = BMXBMI, y = ln_lead)) +
+  geom_point()
+```
+
+# Step 7: Saving an R dataset for later use
+
+```{r}
+write_rds(bmi_lead2, "bmi_lead2.rds")
+```

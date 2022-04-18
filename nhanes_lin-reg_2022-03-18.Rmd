@@ -1,0 +1,122 @@
+---
+title: "NHANES 2017-2018 Linear Regression"
+output: html_document
+date: '2022-03-18'
+---
+
+In our nhanes_data-prep file, we created our analytic dataset to use for our linear regression. We will read in the dataframe we made in that file here and then run unadjusted and adjusted linear regression models.
+
+n = 2569
+
+```{r}
+library(tidyverse)
+library(survey)
+library(jtools)
+```
+
+# Read in dataset
+```{r}
+bmi_lead2 <- read_rds("bmi_lead2.rds")
+```
+
+# Descriptive analysis for Table 1
+
+## Make survey design object
+```{r, message=FALSE, warning=FALSE}
+# Make the survey design object
+nh_svy <- svydesign(data = bmi_lead2, strata = ~SDMVSTRA, id = ~SDMVPSU, weights = ~WTMEC2YR, nest = T)
+
+# For working with a subset of the population, we can do the following. 
+target_svy <- subset(nh_svy, targetpop == 1)
+```
+
+## Get Table 1 numbers
+
+```{r}
+bmi_lead2 %>% 
+  filter(targetpop == 1) %>% 
+  group_by(bmicatf) %>% 
+  summarise(n = n())
+```
+
+```{r}
+t1_1 <- svyby(~RIDAGEYR, ~bmicatf, design = target_svy, svymean)
+
+ftable(t1_1) %>% round(2)
+
+t1_1 %>% 
+  mutate(RIDAGEYR = round(RIDAGEYR, 1),
+         se = round(se, 2))
+```
+
+```{r}
+t1_2 <- svyby(~ridreth3f, ~bmicatf, design = target_svy, svymean)
+
+t1_2 %>% 
+  # here I'm just getting my output in the same order as Kate's table:
+  select(contains("Mexican American"), contains("Other Hispanic"), contains("Non-Hispanic Black"), contains("Non-Hispanic White"), contains("Non-Hispanic Asian"), contains("Other")) %>% 
+  mutate(across(.cols = starts_with("ridreth")), .*100) %>% 
+  round(1)
+
+```
+
+
+# Linear regression ignoring complex survey design
+
+```{r}
+# Make a df for the target population
+targetpop_df <- bmi_lead2 %>% 
+  filter(targetpop == 1)
+
+# define the model object using linear model, ignoring complex survey design
+model1 <- lm(LBXBPB ~ BMXBMI, data = targetpop_df)
+ 
+# Plot residuals vs fitted, Q-Q, Scale-location, residuals vs leverage
+plot(model1)
+
+# A clean way to look at your results 
+broom::tidy(model1, conf.int = T) 
+
+# Another way to look at your results
+jtools::summ(model1, confint = T)
+```
+
+
+# Linear regression with complex survey design
+```{r}
+model_svy_1 <- svyglm(LBXBPB~BMXBMI, design=target_svy)
+
+summary(model_svy_1)
+
+plot(svyglm(LBXBPB~BMXBMI, design=target_svy))
+
+broom::tidy(model_svy_1)
+
+jtools::summ(model_svy_1, confint = T)
+```
+
+## Simple
+
+```{r}
+model_svy_2 <- svyglm(ln_lead~BMXBMI, design=target_svy)
+summary(model_svy_2)
+plot(svyglm(ln_lead~BMXBMI, design=target_svy))
+broom::glance(model_svy_2)
+```
+
+## Multivariable
+```{r}
+summary(svyglm(LBXBPB ~ BMXBMI + RIDAGEYR + ridreth3f, design=target_svy))
+plot(svyglm(ln_lead~BMXBMI + RIDAGEYR + ridreth3f, design=target_svy))
+```
+
+## Stratified by race/ethnicity
+```{r}
+
+```
+
+## BMI * Age interaction
+```{r}
+
+```
+
