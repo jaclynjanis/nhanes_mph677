@@ -8,26 +8,35 @@ date: '2022-03-18'
 
 Here, we will read in the SAS export files from the [NHANES website](https://wwwn.cdc.gov/nchs/nhanes/continuousnhanes/default.aspx?BeginYear=2017){target="_blank"} using the {haven} package.
 
-I have already installed the packages below that I will call with the library() function. To install packages, you simply run install.packages("package name") or go to Tools \> Install Packages \> input package name.
+I have already installed the packages below that I will call with the library() function. To install packages, you simply run this first code chunk by removing the "#" and running the install.packages() function.
+
+```{r}
+#install.packages(c("haven", "tidyverse", "skimr"))
+
+library(haven)
+library(tidyverse)
+library(skimr)
+```
 
 ```{r, message=F, warning=F}
-library(haven)
-
 demo <- read_xpt("data/DEMO_J.xpt")
 bmx <- read_xpt("data/BMX_J.xpt")
 pbcd <- read_xpt("data/PBCD_J.xpt")
-
 ```
 
 # Step 2: Look at the data
 
-cmd shift m
+There are lots of ways to look at data, and I particularly like the skimr package for the skim() function:
 
 ```{r}
-library(tidyverse)
-library(skimr)
 skim(demo)
+```
+
+```{r}
 skim(bmx)
+```
+
+```{r}
 skim(pbcd)
 ```
 
@@ -39,22 +48,27 @@ bmi_lead <- demo %>%
   left_join(select(pbcd, SEQN, LBXBPB), by = "SEQN") 
 ```
 
-# Step 4: Look at the data, part deux
+# Step 4: Look at the data again
 
 ```{r}
 skim(bmi_lead)
+```
 
+```{r}
 bmi_lead %>% 
   select(BMXBMI, WTMEC2YR, LBXBPB) %>% 
   skim()
-
 ```
 
-## Histograms of BMI and blood lead level
+## Histograms of BMI and blood lead level {.tabset .tabset-pills}
 
+### BMXBMI
 ```{r}
-
 hist(bmi_lead$BMXBMI)
+```
+
+### LBXBPB
+```{r}
 hist(bmi_lead$LBXBPB)
 ```
 
@@ -147,5 +161,5 @@ bmi_lead2 %>%
 # Step 7: Saving an R dataset for later use
 
 ```{r}
-write_rds(bmi_lead2, "bmi_lead2.rds")
+#write_rds(bmi_lead2, "bmi_lead2.rds")
 ```

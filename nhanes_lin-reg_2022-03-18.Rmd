@@ -6,12 +6,15 @@ date: '2022-03-18'
 
 In our nhanes_data-prep file, we created our analytic dataset to use for our linear regression. We will read in the dataframe we made in that file here and then run unadjusted and adjusted linear regression models.
 
-n = 2569
+I used [this resource](https://stats.oarc.ucla.edu/r/seminars/survey-data-analysis-with-r/) for guidance on using the survey package.
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
+#install.packages(c("survey", "jtools", "gtsummary"))
+
 library(tidyverse)
 library(survey)
 library(jtools)
+library(gtsummary)
 ```
 
 # Read in dataset
@@ -26,7 +29,7 @@ bmi_lead2 <- read_rds("bmi_lead2.rds")
 # Make the survey design object
 nh_svy <- svydesign(data = bmi_lead2, strata = ~SDMVSTRA, id = ~SDMVPSU, weights = ~WTMEC2YR, nest = T)
 
-# For working with a subset of the population, we can do the following. 
+# For working with a subset of the population, we can do the following. But make sure you consider whether this is appropriate for your particular data.
 target_svy <- subset(nh_svy, targetpop == 1)
 ```
 
@@ -83,40 +86,74 @@ jtools::summ(model1, confint = T)
 
 
 # Linear regression with complex survey design
+
+## Blood lead level as outcome
 ```{r}
-model_svy_1 <- svyglm(LBXBPB~BMXBMI, design=target_svy)
+model_svy_1 <- svyglm(LBXBPB ~ BMXBMI, design=target_svy)
 
 summary(model_svy_1)
 
-plot(svyglm(LBXBPB~BMXBMI, design=target_svy))
+plot(model_svy_1)
 
-broom::tidy(model_svy_1)
+broom::tidy(model_svy_1, conf.int = T)
 
-jtools::summ(model_svy_1, confint = T)
+summ(model_svy_1, confint = T)
 ```
 
-## Simple
-
+## Natural log-transformed blood lead level as outcome
 ```{r}
-model_svy_2 <- svyglm(ln_lead~BMXBMI, design=target_svy)
+model_svy_2 <- svyglm(ln_lead ~ BMXBMI, design=target_svy)
+
 summary(model_svy_2)
-plot(svyglm(ln_lead~BMXBMI, design=target_svy))
-broom::glance(model_svy_2)
+
+plot(model_svy_2)
+
+broom::tidy(model_svy_2, conf.int = T)
+
+summ(model_svy_2, confint = T)
 ```
 
-## Multivariable
+## Multivariable with untransformed outcome
 ```{r}
-summary(svyglm(LBXBPB ~ BMXBMI + RIDAGEYR + ridreth3f, design=target_svy))
-plot(svyglm(ln_lead~BMXBMI + RIDAGEYR + ridreth3f, design=target_svy))
+model_svy_3 <- svyglm(LBXBPB ~ BMXBMI + ridreth3f + RIDAGEYR, design=target_svy)
+
+summary(model_svy_3)
+
+plot(model_svy_3)
+
+broom::tidy(model_svy_3, conf.int = T)
+
+summ(model_svy_3, confint = T)
 ```
 
-## Stratified by race/ethnicity
+## Create a full Table 2
+
+We'll use the gtsummary package here to make a nice looking table that is easy to update in case we change anything in our models and want to regenerate the table.
+
 ```{r}
+table2_1 <- model_svy_1 %>% 
+  tbl_regression(estimate_fun = ~style_sigfig(.x, digits = 3),
+                 intercept = T,
+                 label = list(BMXBMI ~ "BMI (kg/m2)")) 
 
+table2_2 <- model_svy_3 %>% 
+  tbl_regression(intercept = T,
+                 estimate_fun = ~style_sigfig(.x, digits = 3),
+                 label = list(BMXBMI ~ "BMI (kg/m2)",
+                              ridreth3f ~ "Race/ethnicity",
+                              RIDAGEYR ~ "Age, years"))
+
+tbl_stack(list(table2_1, table2_2),
+                         group_header = c("Model 1", "Model 2"))
+  
 ```
 
-## BMI * Age interaction
+## Figure 1
 ```{r}
-
+effect_plot(model_svy_1, pred = BMXBMI, 
+            interval = T, int.type = "confidence", int.width = .95,
+            x.label = "BMI (kg/m2)",
+            y.label = "Predicted Value")
 ```
+
 
