@@ -13,7 +13,6 @@ I have already installed the packages below that I will call with the library() 
 ```{r, message = FALSE, warning = FALSE}
 #install.packages(c("haven", "tidyverse", "skimr"))
 
-library(haven)
 library(tidyverse)
 library(skimr)
 ```
