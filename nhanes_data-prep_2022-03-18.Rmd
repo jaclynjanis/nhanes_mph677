@@ -10,7 +10,7 @@ Here, we will read in the SAS export files from the [NHANES website](https://www
 
 I have already installed the packages below that I will call with the library() function. To install packages, you simply run this first code chunk by removing the "#" and running the install.packages() function.
 
-```{r}
+```{r, message = FALSE, warning = FALSE}
 #install.packages(c("haven", "tidyverse", "skimr"))
 
 library(haven)
@@ -19,9 +19,9 @@ library(skimr)
 ```
 
 ```{r, message=F, warning=F}
-demo <- read_xpt("data/DEMO_J.xpt")
-bmx <- read_xpt("data/BMX_J.xpt")
-pbcd <- read_xpt("data/PBCD_J.xpt")
+demo <- read_xpt("DEMO_J.XPT")
+bmx <- read_xpt("BMX_J.XPT")
+pbcd <- read_xpt("PBCD_J.XPT")
 ```
 
 # Step 2: Look at the data
