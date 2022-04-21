@@ -11,7 +11,7 @@ Here, we will read in the SAS export files from the [NHANES website](https://www
 I have already installed the packages below that I will call with the library() function. To install packages, you simply run this first code chunk by removing the "#" and running the install.packages() function.
 
 ```{r, message = FALSE, warning = FALSE}
-#install.packages(c("haven", "tidyverse", "skimr"))
+#install.packages(c("tidyverse", "skimr"))
 
 library(tidyverse)
 library(skimr)
